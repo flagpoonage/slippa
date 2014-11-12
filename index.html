@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="js/slippa.js"></script>
+	<script>
+		var obj = slippa({
+			_constructor: function(value){
+				this.events.on('testing', this.load, this)
+			},
+			load: function(element){
+				console.log(element + 'load');
+			},
+			save: function(element){
+				console.log(element + 'save');
+			}
+		});
+
+		var test = slippa({
+			write: function(){
+				this.events.out('testing', 'Test object!');
+			}
+		})
+
+		var newobj = new obj('Hello');
+		var newObj2 = new test({hello: 10});
+
+		newobj.load('Running ');
+		newObj2.write();
+	</script>
+</head>
+<body>
+</body>
+</html>
