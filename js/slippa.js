@@ -1,4 +1,4 @@
-/* SLippa Library - James Hay 2014 - v0.2*/
+/* SLippa Library - James Hay 2014 - v0.3*/
 ;(function(){
 	slippa = function(o){
 		var sFn = typeof o._constructor === 'function';	
@@ -88,7 +88,10 @@
 			this.isMobile = this.currentSize < 768;
 
 			this.respond({
+				width: this.currentSize,
 				fromMobile: this.previousSize < 768 && this.currentSize >= 768,
+				fromTablet: this.previousSize === 768,
+				toTablet: this.currentSize === 768,
 				toMobile: (this.previousSize >= 768 || this.previousSize === -1) && this.currentSize < 768
 			});
 		}
@@ -203,7 +206,7 @@
 				return signal.ask(data);
 			}		
 
-			return true;
+			return {result: true};
 		}
 	});
 
