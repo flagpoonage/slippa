@@ -1,92 +1,89 @@
-/* SLippa Library - James Hay 2014 - v0.3*/
+/* slippa Library - James Hay 2014 - v0.4*/
 ;(function(){
-	slippa = function(o){
-		var sFn = typeof o._constructor === 'function';	
-		var sCp = slippa._configureProxy;
-		var sCr = slippa._configureResponder;		
+	"use strict";
+	var __fn = 'function',
+	    __ud = 'undefined',
+	    __init = false;
 
-		if(sFn){
-			var SlippaObject = (function(){
-				function SlippaObject(){
-					sCp.call(this);
+	// Slippa object constructor
+	var slippa = function(o){
 
-					if(typeof this.respond === 'function'){
-						sCr.call(this);
-					}
+		// Small object names
+		var hasContructor = typeof o._constructor === __fn
+ 
+		// Universal init function.
+		var universalInitFn = function(){
 
-					this._constructor.apply(this, arguments);
-					this.init();
-				}
+			_configureProxy.call(this);
 
-				return SlippaObject;
-			})();
-		}
-		else{
-			var SlippaObject = (function(){
-				function SlippaObject(){
-					sCp.call(this);
+			if(typeof this.respond === __fn){
 
-					if(typeof this.respond === 'function'){
-						sCr.call(this);
-					}
+				// Only configure responsive handling if a respond function is defined.
+				_configureResponder.call(this);
+			}
+			if(typeof sEv !== __ud){
 
-					this.init();
-				}
-
-				return SlippaObject;
-			})();
+				// Per instance event object
+				this.events = new _EventObject();
+			}			
 		}
 
-		p = SlippaObject;
+		// Create the constructor function for the defined object wrapping the defined _constructor function if one has been provided.
+		var p = hasContructor ? 
+		(function SlippaObject(){
+			universalInitFn.call(this);
+			this._constructor.apply(this, arguments);
+			this.init();
+		}) : 
+		(function SlippaObject(){
+			universalInitFn.call(this);
+			this.init();
+		});
+
 		var pp = p.prototype;
 
-		if(typeof o.init === 'undefined'){
+		if(typeof o.init === __ud){
+			// Init is always called, so if an init function is not defined, we define an empty function here
 			pp.init = function() {};
 		}
 
 		for(var i in o){
 			if(o.hasOwnProperty(i)){
-				if(i === 'slippa' && sFn){
-					continue;
-				}
-
+				// Build the prototype object from the defined methods and properties.
 				pp[i] = o[i];
 			}
 		}		
 
-		if(slippa.initialized){
-			pp.appevents = slippa.events;
-			pp.events = new slippa.EventObject();
+		if(__init){
+			// Application-wide event object
+			pp.appevents = __events;
+
+			// Per prototype event object
+			pp.protoevents = new sEv();
 		}
 
 		return p;
 	};
 
-	slippa.config = {
-		respondSizes: []
-	};
+	// Configure an object instance to respond to application size-changing events.
+	var _configureResponder = function(){
 
-	// TODO: Wire this up.
-	slippa.configure = function(config){
-		this.config.respondSizes = config.respondSizes || [];
-		if(this.config.respondSizes.length > 0){
-
-		}
-	};
-
-	slippa._configureResponder = function(){
 		this.isMobile = false;
 		this.currentSize = -1;
-		this._responderInitialized = false;
-		this.appevents.on('size:respond', slippa._respondInternal.call(this), this);
+		this.appevents.on('size:respond', _respondInternal.call(this), this);
 	};
 
-	slippa._respondInternal = function(){
+	// Returns the context assigned internal respond function which will call the user-defined respond function.
+	var _respondInternal = function(){
+
 		return function(width){
+
+			// TODO: User-defined responsive capabilities.
 			this.previousSize = this.currentSize;
 			this.currentSize = width;
 			this.isMobile = this.currentSize < 768;
 
+			// Call the user defined respond function.
 			this.respond({
 				width: this.currentSize,
 				fromMobile: this.previousSize < 768 && this.currentSize >= 768,
@@ -97,16 +94,18 @@
 		}
 	};
 
-	slippa._configureProxy = function(){
+	// Configures a context assigned proxy function for each user-defined function.
+	var _configureProxy = function(){
 		this.proxy = {};
 		for(var i in this){
-			if(typeof this[i] === 'function'){
-				this.proxy[i] = slippa.proxy.call(this, this[i]);
+			if(typeof this[i] === __fn){
+				this.proxy[i] = _proxy.call(this, this[i]);
 			}
 		}		
 	}
 
-	slippa.proxy = function(fn){
+	// Returns the context assigned internal proxy function for a user-defined function.
+	var _proxy = function(fn){
 		return (function(self){
 			return function(){
 				fn.apply(self, arguments);
@@ -114,15 +113,16 @@
 		})(this);
 	};
 
-	slippa.initialized = false;
+	// Represents a single named signal and provides the underlying calls for callbacks associated with that signal.
+	var _SignalObject = slippa({
 
-	slippa.SignalObject = slippa({
-
-		_constructor: function(signalKey){
-			this.signalKey = signalKey;
+		// Constructor
+		_constructor: function(key){
+			this.key = key;
 			this.listeners = [];
 		},
 
+		// Adds a new callback function with a specified context to this signal
 		addListener: function(context, callback){
 			this.listeners.push({
 				context: context,
@@ -130,6 +130,7 @@
 			});
 		},
 
+		// Removes athe callback function with the specific context
 		removeListener: function(context, callback){
 			for(var i = 0; i < this.listeners.length; i++){
 				if(this.listeners[i].context === context && this.listeners[i].callback === callback){
@@ -139,12 +140,15 @@
 			}
 		},
 
+		// Runs each callback function assigned to the signal, supplying the data provided to the event.out function.
 		dispatch: function(data){
 			for(var i = 0; i < this.listeners.length; i++){
 				this.listeners[i].callback.call(this.listeners[i].context, data);
 			}
 		},
 
+		// Runs each callback function assigned to the signal, collecting the results of each, and returning a result object.
+		// This provides a decoupled method for unrelated components to have simple 2-way communication.
 		ask: function(data){
 			var res = [];
 			res.result = true;
@@ -154,6 +158,7 @@
 					content: this.listeners[i].context});
 			}			
 
+			// If any results are false, the result object should have an overally status of false.
 			for(var i = 0; i < res.length; i++){
 				if(!res[i].result){
 					res.result = false;
@@ -165,43 +170,49 @@
 		}
 	});
 
-	slippa.EventObject = slippa({
+	// Represents a set of signals in any scope of the application
+	var _EventObject = slippa({
 
+		// Constructor
 		_constructor: function(){
 			this.signals = {};
 		},
 
-		on: function(signalKey, callback, context){
-			var signal = this.signals[signalKey];
+		// Assigns a contextual callback function to the matching signal in this event object.
+		on: function(key, callback, context){
+			var signal = this.signals[key];
 			if(typeof signal === 'undefined'){
-				signal = new slippa.SignalObject(signalKey);
-				this.signals[signalKey] = signal;
+				signal = new _SignalObject(key);
+				this.signals[key] = signal;
 			}
 
 			signal.addListener(context, callback);
 		},
 
-		off: function(signalKey, callback, context){
-			var signal = this.signals[signalKey];
+		// Removes a contextual callback function from the matching signal in this event object.
+		off: function(key, callback, context){
+			var signal = this.signals[key];
 			if(typeof signal !== 'undefined'){
 				signal.removeListener(context, callback);
 
 				if(signal.listeners.length === 0){
-					this.signals[signalKey] = undefined;
-					delete this.signals[signalKey];
+					this.signals[key] = undefined;
+					delete this.signals[key];
 				}
 			}
 		},
 
-		out: function(signalKey, data){
-			var signal = this.signals[signalKey];
+		// Calls a dispatch on the matching signal in this event object.
+		out: function(key, data){
+			var signal = this.signals[key];
 			if(typeof signal !== 'undefined'){
 				signal.dispatch(data);
 			}		
 		},
 
-		ask: function(signalKey, data){
-			var signal = this.signals[signalKey];
+		// Runs an 'ask' based dispatch on the matching signal in this event object and returns the aggregated callback results.
+		ask: function(key, data){
+			var signal = this.signals[key];
 			if(typeof signal !== 'undefined'){
 				return signal.ask(data);
 			}		
@@ -210,7 +221,10 @@
 		}
 	});
 
-	slippa.events = new slippa.EventObject();
-	slippa.initialized = true;
+	var __events = new _EventObject();
+	__init = true;
+
+	this.slippa = slippa;
+	this.slippaEvents = __events;
 
 }).call(this);
