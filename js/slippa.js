@@ -3,25 +3,47 @@
 	"use strict";
 	var __fn = 'function',
 	    __ud = 'undefined',
-	    __init = false;
+	    __init = false,
+	    __rsv = ['_opt','_constructor'];
+
+	var __reserved = function(key){
+		for(var i = 0; i < __rsv.length; i++){
+			if(key === __rsv[i]){ return true };
+		}
+		return false;
+	};
 
 	// Slippa object constructor
 	var slippa = function(o){
 
+		!o._opt && (o._opt = {
+			noProxy: false,
+			noEvents: false,
+			noAppEvents: false,
+			noProtoEvents: false,
+		})
+
 		// Small object names
-		var hasContructor = typeof o._constructor === __fn
+		var hasContructor = typeof o._constructor === __fn;
+
+		var incl = {
+			proxy: !o._opt.noProxy,
+			events: !o._opt.noEvents,
+			appevents: !o._opt.noAppEvents,
+			protoevents: !o._opt.noProtoEvents,
+		};
  
 		// Universal init function.
 		var universalInitFn = function(){
 
-			_configureProxy.call(this);
+			incl.proxy && (_configureProxy.call(this));
 
 			if(typeof this.respond === __fn){
 
 				// Only configure responsive handling if a respond function is defined.
 				_configureResponder.call(this);
 			}
-			if(typeof sEv !== __ud){
+			if(typeof _EventObject !== __ud && __init && incl.events){
 
 				// Per instance event object
 				this.events = new _EventObject();
@@ -49,6 +71,7 @@
 
 		for(var i in o){
 			if(o.hasOwnProperty(i)){
+				if(!__reserved[i])
 				// Build the prototype object from the defined methods and properties.
 				pp[i] = o[i];
 			}
@@ -56,10 +79,10 @@
 
 		if(__init){
 			// Application-wide event object
-			pp.appevents = __events;
+			incl.appevents && (pp.appevents =  __events);
 
 			// Per prototype event object
-			pp.protoevents = new sEv();
+			incl.protoevents && (pp.protoevents = new _EventObject());
 		}
 
 		return p;
@@ -115,6 +138,12 @@
 
 	// Represents a single named signal and provides the underlying calls for callbacks associated with that signal.
 	var _SignalObject = slippa({
+		_opt: {
+			noProxy: true,
+			noEvents: true,
+			noAppEvents: true,
+			noProtoEvents: true,			
+		},
 
 		// Constructor
 		_constructor: function(key){
@@ -172,6 +201,12 @@
 
 	// Represents a set of signals in any scope of the application
 	var _EventObject = slippa({
+		_opt: {
+			noProxy: true,
+			noEvents: true,
+			noAppEvents: true,
+			noProtoEvents: true,			
+		},
 
 		// Constructor
 		_constructor: function(){
